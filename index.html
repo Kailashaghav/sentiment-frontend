@@ -233,7 +233,16 @@ async function brand() {
       throw new Error(err.detail || 'HTTP ' + r.status);
     }
     const d = await r.json();
-    // d = { brand, total_mentions, positive, negative, reputation_score, sentiment_pct, top_positive_words }
+
+    // Add the no-data check here:
+    if (!d || Object.keys(d).length === 0 || d.detail) {
+      document.getElementById('bres').innerHTML = '<span style="color:var(--negative)">No data available for this brand.</span>';
+      toast('No data available for this brand','error');
+      spin('brs', false);
+      return;
+    }
+
+    // Rest of your existing code...
     const score = d.reputation_score || 0;
     const col = score >= 60 ? 'var(--pos)' : score >= 40 ? 'var(--neu)' : 'var(--neg)';
     el.innerHTML =
@@ -259,67 +268,6 @@ async function brand() {
   }
   spin('brs', false);
 }
-
-// ── History ──────────────────────────────────────────────────────────────────
-function addHist(text, sent, conf) {
-  hist.unshift({ text, sent, conf, time: new Date().toLocaleTimeString() });
-  if (hist.length > 100) hist.pop();
-  renderHist(); updateStats(); updateCharts();
-}
-
-function renderHist() {
-  const el = document.getElementById('hb');
-  if (!hist.length) { el.innerHTML = '<div class="empty">No analyses yet.</div>'; return; }
-  el.innerHTML = '<table><thead><tr><th>Time</th><th>Text</th><th>Sentiment</th><th>Confidence</th></tr></thead><tbody>' +
-    hist.map(h =>
-      '<tr>' +
-      '<td style="color:var(--muted);font-family:JetBrains Mono,monospace;font-size:.74rem;white-space:nowrap">' + h.time + '</td>' +
-      '<td><div class="tc">' + h.text.replace(/</g, '&lt;') + '</div></td>' +
-      '<td><span class="pill ' + h.sent + '">' + h.sent.toUpperCase() + '</span></td>' +
-      '<td style="font-family:JetBrains Mono,monospace;font-size:.82rem;color:var(--accent2)">' + h.conf + '%</td>' +
-      '</tr>'
-    ).join('') + '</tbody></table>';
-}
-
-function clearHist() { hist = []; renderHist(); updateStats(); updateCharts(); toast('Cleared', 'i'); }
-
-function updateStats() {
-  const t = hist.length, p = hist.filter(h => h.sent === 'positive').length, n = hist.filter(h => h.sent === 'negative').length;
-  const a = t ? Math.round(hist.reduce((s, h) => s + h.conf, 0) / t) : 0;
-  document.getElementById('st').textContent = t;
-  document.getElementById('sp').textContent = p;
-  document.getElementById('sn').textContent = n;
-  document.getElementById('sc2').textContent = t ? a + '%' : '—';
-}
-
-function updateCharts() {
-  pie.data.datasets[0].data = [hist.filter(h => h.sent === 'positive').length, hist.filter(h => h.sent === 'negative').length];
-  pie.update();
-  const last = hist.slice(0, 20).reverse();
-  line.data.labels = last.map((_, i) => '#' + (i + 1));
-  line.data.datasets[0].data = last.map(h => h.conf);
-  line.update();
-}
-
-function clearIn() {
-  document.getElementById('tin').value = '';
-  document.getElementById('rb').className = 'rbadge';
-  document.getElementById('cb').style.display = 'none';
-  document.getElementById('cf').style.width = '0';
-}
-
-function spin(id, on) { document.getElementById(id).style.display = on ? 'block' : 'none'; }
-
-function toast(msg, type) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.className = 'show ' + (type || 'i');
-  clearTimeout(el._t);
-  el._t = setTimeout(() => { el.className = ''; }, 3000);
-}
-
-initCharts();
-ping();
 </script>
 </body>
 </html>
